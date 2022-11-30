@@ -1,0 +1,257 @@
+
+  I approached this problem in two steps:
+
+
+The first step is to translate all the points with respect to the store, and then order the points in increasing order of polar angle. We then divide the points into 10 baskets, as subarrays of the array of points after sorting. The idea behind this step is to bunch nearby points together, so that one person can deliver them. In this way, each person delivers to only nearby points and also does not venture into points far away in terms of polar angle.
+The second step is to apply the travelling salesman problem for each of the 10 baskets. We apply the Held-Karp algorithm for each of the baskets and thus identify the optimal route that should be taken by each delivery person. Thus, the problem is solved in a very reasonable time with high accuracy.
+
+
+
+c++  code ---
+
+
+#include <bits/stdc++.h>
+#define int long long
+#define endl '\n'
+using namespace std;
+typedef long double ld;
+
+#define vi vector <int>
+#define pi pair <int, int>
+#define FOR(i, a, b) for (int i = (a); i <= (b); i++)
+const int inf = 1e18;
+
+pair <ld, ld> store = {-28.9428, -77.2276};
+bool cmp (pair <pair <ld, ld>, int> a, pair <pair <ld, ld>, int> b)
+{
+    ld aAng = atan2(a.first.second, a.first.first);
+    ld bAng = atan2(b.first.second, b.first.first);
+    return aAng < bAng;
+}
+
+ld distance(ld lat1, ld lon1, ld lat2, ld lon2) {
+  ld p = 0.017453292519943295;    // pi/180
+  ld a = 0.5 - cos((lat2 - lat1) * p)/2 + 
+          cos(lat1 * p) * cos(lat2 * p) * 
+          (1 - cos((lon2 - lon1) * p))/2;
+
+  return 12742.0 * asin(sqrt(a)); // 2*R = 6371 km
+}
+
+vector <int> tsp (vector <pair <pair <ld, ld>, int>>& v)
+{
+    int n = v.size();
+    vector <vector <int>> dp(1 << n, vector<int>(n)), parent(1 << n, vector<int>(n));
+
+    FOR (i, 1, (1 << n) - 1)
+    {
+        FOR (j, 0, n - 1)
+        {
+            dp[i][j] = inf;
+            if (!((i >> j) & 1)) continue;
+            if (__builtin_popcountll(i) == 1) 
+            {
+                dp[i][j] = distance(store.first, store.second, v[j].first.first, v[j].first.second);
+                continue;
+            }
+
+            int mask = i - (1 << j);
+            FOR (k, 0, n - 1)
+            {
+                if (!((mask >> k) & 1)) continue;
+                ld dis = distance(v[k].first.first, v[k].first.second, v[j].first.first, v[j].first.second);
+                if (dp[i][j] < dp[mask][k] + dis) continue;
+                dp[i][j] = dp[mask][k] + dis;
+                parent[i][j] = k;
+            }
+        }
+    }
+
+    pair <ld, ld> mn = {inf, 0};
+    FOR (i, 0, n - 1)
+    {
+        ld dis = distance(store.first, store.second, v[i].first.first, v[i].first.second);
+        mn = min(mn, {dp[(1 << n) - 1][i] + dis, i});
+    }
+
+    vi path;
+    int mask = (1 << n) - 1, cur = mn.second;
+    path.push_back(cur);
+    while (mask)
+    {
+        int nxt = parent[mask][cur];
+        path.push_back(nxt);
+        mask -= (1 << cur);
+        cur = nxt;
+    }
+
+    path.pop_back();
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+signed main()
+{
+    ios_base::sync_with_stdio(false);
+    cin.tie(0);
+    
+    int n; // = 100
+    cin >> n;
+    vector <pair <pair <ld, ld>, int>> points(n + 1);
+
+    FOR (i, 1, n)
+    {
+        ld x, y;
+        cin >> x >> y;
+        x -= store.first;
+        y -= store.second;
+        points[i] = {{x, y}, i};
+    }
+    sort(++points.begin(), points.end(), cmp);
+
+    vector <vector <int>> ans;
+    FOR (i, 1, 10)
+    {
+        vector <pair <pair <ld, ld>, int>> temp;
+        FOR (j, (i - 1)*10 + 1, i*10) temp.push_back(points[j]);
+
+        vector <int> cur;
+        vector <int> path = tsp(temp);
+
+        for (int j: path) cur.push_back(points[j + (i - 1)*10 + 1].second);
+        ans.push_back(cur);
+    }
+
+    for (auto v: ans)
+    {
+        for (auto i: v) cout << i << " ";
+        cout << ";" << endl;
+    }
+}
+
+
+
+Input- 
+
+100
+77.26398177	29.08908139
+77.26524685	29.09254018
+77.26404986	29.09916289
+77.26563536	29.0953552
+77.2658382	29.09596633
+77.26591865	29.09603074
+77.2665567	29.09677843
+77.26625794	29.10057407
+77.26653426	29.09987032
+77.26763392	29.09902442
+77.26816772	29.10036922
+77.26838429	29.10618655
+77.26839568	29.10613792
+77.26839568	29.10613792
+77.2683806	29.10623085
+77.26900589	29.10445117
+77.27113639	29.10958964
+77.0552268	28.42167042
+78.02883781	27.14347458
+78.05544566	27.15818143
+80.93117639	26.8385149
+73.86530748	18.5092324
+72.83506724	21.1942175
+72.83137689	21.17333382
+84.09939867	24.04220161
+84.54404924	25.5157848
+85.0504753	23.35214686
+85.05042222	22.47985292
+86.97660763	23.51162401
+47.86461111	17.76039686
+45.83053924	21.81851104
+39.23071933	36.83638673
+39.23071933	36.83638673
+35.72298595	51.38187714
+31.76538576	35.13460122
+34.14445867	72.09338553
+34.13966502	72.09170513
+30.04827662	31.2573722
+33.66878795	73.0000684
+33.64388599	73.09087258
+33.6438338	73.09082028
+33.64378188	73.09081592
+33.63454932	73.09619408
+33.51787115	72.87231915
+33.01481109	73.73526659
+32.64872431	73.33715737
+32.48295698	72.9124232
+32.4809311	72.91209161
+32.7638267	74.84285329
+32.76280179	74.84445025
+32.760082	74.837532
+32.758788	74.847437
+32.75554415	74.84967615
+32.75067226	74.84934188
+32.74206136	74.81924247
+32.7462234	74.8454447
+32.7485445	74.8585121
+32.74150186	74.82030161
+32.7437509	74.8426261
+32.74328169	74.85781368
+32.74328169	74.85781368
+32.74281257	74.85785511
+32.74281257	74.85785511
+32.74281257	74.85785511
+32.74281257	74.85785511
+32.74307	74.86004
+32.73549349	74.82993845
+32.73384188	74.82788729
+32.74159492	74.87099335
+32.73964962	74.86485679
+32.74068883	74.87170648
+32.738674	74.8653551
+32.73798262	74.86357637
+32.73354072	74.84355971
+32.73764984	74.86771703
+32.7377054	74.87125419
+32.7355138	74.87096854
+32.73173852	74.86654859
+32.72931832	74.86914396
+32.72646312	74.85984005
+32.72339036	74.85763427
+32.70875396	74.86414198
+32.7058673	74.8622451
+31.96100625	70.61463408
+32.70573109	74.87293828
+32.70493382	74.87205416
+32.70494256	74.87211384
+32.70179374	74.86033425
+32.7017912	74.86046366
+32.70178894	74.86057263
+32.7005278	74.85382888
+32.70250922	74.86711655
+32.70134571	74.86177795
+32.70084012	74.8591239
+32.69974851	74.86265653
+32.7002671	74.86795072
+32.6981801055 74.8611114174
+32.6978824429 74.861696139
+32.6974942103 74.861595229
+
+
+
+output - 
+
+
+29 28 27 25 22 23 24 20 21 26 ;
+11 10 7 5 6 4 2 1 18 19 ;
+30 3 15 12 13 14 16 8 9 17 ;
+31 32 33 38 35 34 36 37 39 40 ;
+43 42 41 44 84 48 47 46 45 49 ;
+53 50 51 52 54 59 58 55 56 57 ;
+63 64 65 62 61 60 74 68 67 66 ;
+80 78 77 76 75 71 72 73 70 69 ;
+83 93 94 90 89 91 88 82 81 79 ;
+96 99 98 97 95 92 87 86 85 100 ;
+
+
+
+
+
+
